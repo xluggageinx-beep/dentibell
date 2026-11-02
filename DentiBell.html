@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DentiBell — 치과 진료 호출·대기 관리 시스템</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app" id="app">
+    <!-- Top brand bar (no giant hero — straight to tabs) -->
+    <header class="brand-bar">
+      <div class="brand">
+        <div class="brand-mark">DentiBell</div>
+        <div class="brand-tag">Dental Chair Call &amp; Queue System</div>
+      </div>
+      <div class="brand-right">
+        <button class="reset-btn" id="resetBtn" title="모든 호출·진행 데이터를 초기화합니다">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+          <span>Reset</span>
+        </button>
+        <div class="brand-meta">Prototype · v0.1 · Concept 2026</div>
+      </div>
+    </header>
+
+    <!-- Segmented tab control -->
+    <div class="seg-wrap">
+      <div class="seg" id="seg">
+        <div class="seg-pill" id="segPill"></div>
+        <button class="seg-btn active" data-tab="callbell">
+          <span class="idx en">01</span>
+          <span>체어 콜벨 · Call Bell</span>
+        </button>
+        <button class="seg-btn" data-tab="panel">
+          <span class="idx en">02</span>
+          <span>의국 모니터 · Ward Panel</span>
+        </button>
+        <button class="seg-btn" data-tab="watch">
+          <span class="idx en">03</span>
+          <span>스마트워치 · Watch App</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Tab content mount point -->
+    <main id="mount"></main>
+  </div>
+
+  <!-- React -->
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <!-- Libraries -->
+  <script src="lib/store.js"></script>
+  <script src="lib/swipe.js"></script>
+
+  <!-- Tabs -->
+  <script type="text/babel" src="tabs/panel.jsx"></script>
+  <script type="text/babel" src="tabs/watch.jsx"></script>
+  <script type="text/babel" src="tabs/callbell.jsx"></script>
+
+  <!-- App -->
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    function App() {
+      // Persist active tab
+      const [tab, setTab] = useState(() => {
+        try { return localStorage.getItem('dentibell.tab') || 'callbell'; } catch(e) { return 'callbell'; }
+      });
+
+      // Wire reset button
+      useEffect(() => {
+        const btn = document.getElementById('resetBtn');
+        if (!btn) return;
+        function handleReset() {
+          window.DentiBellStore.reset();
+          btn.classList.add('spun');
+          setTimeout(() => btn.classList.remove('spun'), 600);
+        }
+        btn.addEventListener('click', handleReset);
+        return () => btn.removeEventListener('click', handleReset);
+      }, []);
+
+      useEffect(() => {
+        try { localStorage.setItem('dentibell.tab', tab); } catch(e) {}
+      }, [tab]);
+
+      // Move segmented pill
+      useEffect(() => {
+        const seg = document.getElementById('seg');
+        const pill = document.getElementById('segPill');
+        if (!seg || !pill) return;
+        function place() {
+          const btn = seg.querySelector('[data-tab="' + tab + '"]');
+          if (!btn) return;
+          const segRect = seg.getBoundingClientRect();
+          const bRect = btn.getBoundingClientRect();
+          pill.style.left = (bRect.left - segRect.left) + 'px';
+          pill.style.width = bRect.width + 'px';
+        }
+        place();
+        window.addEventListener('resize', place);
+        // Update button active state
+        seg.querySelectorAll('.seg-btn').forEach(b => {
+          b.classList.toggle('active', b.dataset.tab === tab);
+        });
+        return () => window.removeEventListener('resize', place);
+      }, [tab]);
+
+      // Bind seg clicks once
+      useEffect(() => {
+        const seg = document.getElementById('seg');
+        if (!seg) return;
+        function onClick(e) {
+          const btn = e.target.closest('.seg-btn');
+          if (!btn) return;
+          setTab(btn.dataset.tab);
+        }
+        seg.addEventListener('click', onClick);
+        return () => seg.removeEventListener('click', onClick);
+      }, []);
+
+      return (
+        <React.Fragment>
+          {tab === 'panel'    && <PanelTab />}
+          {tab === 'watch'    && <WatchTab />}
+          {tab === 'callbell' && <CallbellTab />}
+        </React.Fragment>
+      );
+    }
+
+    // Wait for babel-transpiled tabs to attach to window
+    function boot() {
+      if (!window.PanelTab || !window.WatchTab || !window.CallbellTab) {
+        return setTimeout(boot, 30);
+      }
+      const root = ReactDOM.createRoot(document.getElementById('mount'));
+      root.render(<App />);
+    }
+    boot();
+  </script>
+</body>
+</html>
